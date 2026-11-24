@@ -1,0 +1,325 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation Blueprints
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'xp', 'weeklyXp', 'gems', 'streak',
+          'streakFreezes', 'dailyGoal', 'dailyXpToday', 'lastActiveDate',
+          'activeLanguage', 'activeFrameId', 'unlockedFrames', 'earnedBadges',
+          'subscriptionPlan', 'subscriptionStatus', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'xp', 'weeklyXp', 'gems', 'streak',
+          'streakFreezes', 'dailyGoal', 'dailyXpToday', 'lastActiveDate',
+          'activeLanguage', 'knownLanguage', 'referralCode', 'referralsCount', 'referredBy',
+          'activeFrameId', 'unlockedFrames', 'earnedBadges',
+          'subscriptionPlan', 'subscriptionStatus', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == request.auth.uid && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && (!('email' in data) || (data.email is string && data.email.size() <= 160))
+        && data.xp is int && data.xp >= 0 && data.xp <= 10000000
+        && data.weeklyXp is int && data.weeklyXp >= 0 && data.weeklyXp <= 10000000
+        && data.gems is int && data.gems >= 0 && data.gems <= 1000000
+        && data.streak is int && data.streak >= 0 && data.streak <= 10000
+        && data.streakFreezes is int && data.streakFreezes >= 0 && data.streakFreezes <= 50
+        && data.dailyGoal is int && data.dailyGoal >= 10 && data.dailyGoal <= 500
+        && data.dailyXpToday is int && data.dailyXpToday >= 0 && data.dailyXpToday <= 50000
+        && data.lastActiveDate is string && data.lastActiveDate.size() >= 1 && data.lastActiveDate.size() <= 20
+        && data.activeLanguage is string && data.activeLanguage.size() >= 2 && data.activeLanguage.size() <= 10
+        && (!('knownLanguage' in data) || (data.knownLanguage is string && data.knownLanguage.size() >= 2 && data.knownLanguage.size() <= 10))
+        && (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() >= 4 && data.referralCode.size() <= 32))
+        && (!('referralsCount' in data) || (data.referralsCount is int && data.referralsCount >= 0 && data.referralsCount <= 10000))
+        && (!('referredBy' in data) || (data.referredBy is string && data.referredBy.size() <= 32))
+        && data.activeFrameId is string && data.activeFrameId.size() >= 1 && data.activeFrameId.size() <= 40
+        && data.unlockedFrames is list && data.unlockedFrames.size() >= 1 && data.unlockedFrames.size() <= 20
+        && data.unlockedFrames[0] is string
+        && data.earnedBadges is list && data.earnedBadges.size() <= 30
+        && (data.earnedBadges.size() == 0 || data.earnedBadges[0] is string)
+        && data.subscriptionPlan in ['free', 'monthly', 'annual', 'lifetime']
+        && data.subscriptionStatus in ['inactive', 'active']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLanguageProgress(data, userId, langCode) {
+      return data.keys().hasAll(['uid', 'langCode', 'xp', 'masteredCards', 'completedGrammar', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'langCode', 'xp', 'masteredCards', 'completedGrammar', 'updatedAt'])
+        && data.uid is string && data.uid == request.auth.uid && data.uid == userId
+        && data.langCode is string && data.langCode == langCode && isValidId(langCode)
+        && data.xp is int && data.xp >= 0 && data.xp <= 5000000
+        && data.masteredCards is list && data.masteredCards.size() <= 300
+        && (data.masteredCards.size() == 0 || data.masteredCards[0] is string)
+        && data.completedGrammar is list && data.completedGrammar.size() <= 300
+        && (data.completedGrammar.size() == 0 || data.completedGrammar[0] is string)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPurchase(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'transactionId', 'planId', 'amountCents', 'currency',
+          'paymentMethod', 'status', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'transactionId', 'planId', 'amountCents', 'currency',
+          'paymentMethod', 'cardLast4', 'status', 'createdAt'
+        ])
+        && data.uid is string && data.uid == request.auth.uid && data.uid == userId
+        && data.transactionId is string && data.transactionId.size() >= 6 && data.transactionId.size() <= 80
+        && data.planId in ['monthly', 'annual', 'lifetime']
+        && data.amountCents is int && data.amountCents >= 100 && data.amountCents <= 100000
+        && data.currency == 'USD'
+        && data.paymentMethod in ['card', 'upi', 'wallet']
+        && (!('cardLast4' in data) || (data.cardLast4 is string && data.cardLast4.size() <= 4))
+        && data.status == 'succeeded'
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'xp', 'weeklyXp', 'streak',
+          'activeFrameId', 'activeLanguage', 'badgesCount', 'league', 'isPlus', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'xp', 'weeklyXp', 'streak',
+          'activeFrameId', 'activeLanguage', 'badgesCount', 'league', 'isPlus', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == request.auth.uid && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.xp is int && data.xp >= 0 && data.xp <= 10000000
+        && data.weeklyXp is int && data.weeklyXp >= 0 && data.weeklyXp <= 10000000
+        && data.streak is int && data.streak >= 0 && data.streak <= 10000
+        && data.activeFrameId is string && data.activeFrameId.size() >= 1 && data.activeFrameId.size() <= 40
+        && data.activeLanguage is string && data.activeLanguage.size() >= 2 && data.activeLanguage.size() <= 10
+        && data.badgesCount is int && data.badgesCount >= 0 && data.badgesCount <= 30
+        && data.league in ['Bronze', 'Silver', 'Gold', 'Sapphire', 'Obsidian']
+        && data.isPlus is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDuel(data) {
+      return data.keys().hasAll([
+          'challengerUid', 'challengerName', 'challengerFrame',
+          'opponentUid', 'opponentName', 'languageCode',
+          'targetXp', 'challengerXp', 'opponentXp', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'challengerUid', 'challengerName', 'challengerFrame',
+          'opponentUid', 'opponentName', 'languageCode',
+          'targetXp', 'challengerXp', 'opponentXp', 'status', 'winnerUid',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.challengerUid)
+        && data.challengerName is string && data.challengerName.size() >= 1 && data.challengerName.size() <= 80
+        && data.challengerFrame is string && data.challengerFrame.size() >= 1 && data.challengerFrame.size() <= 40
+        && data.opponentUid is string && data.opponentUid.size() <= 128
+        && data.opponentName is string && data.opponentName.size() <= 80
+        && data.languageCode is string && data.languageCode.size() >= 2 && data.languageCode.size() <= 10
+        && data.targetXp is int && data.targetXp >= 20 && data.targetXp <= 1000
+        && data.challengerXp is int && data.challengerXp >= 0 && data.challengerXp <= 5000
+        && data.opponentXp is int && data.opponentXp >= 0 && data.opponentXp <= 5000
+        && data.status in ['open', 'active', 'completed']
+        && (!('winnerUid' in data) || (data.winnerUid is string && data.winnerUid.size() <= 128))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 1. Private User Profile (Strict Owner Isolation)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isSignedIn() && existing().uid == request.auth.uid;
+
+      allow create: if isValidId(userId)
+        && isVerifiedUser()
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && isVerifiedUser()
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Study progress / streak / goal update
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'xp', 'weeklyXp', 'gems', 'streak', 'streakFreezes',
+            'dailyGoal', 'dailyXpToday', 'lastActiveDate', 'activeLanguage',
+            'knownLanguage', 'referralCode', 'referralsCount', 'referredBy',
+            'activeFrameId', 'unlockedFrames', 'earnedBadges', 'displayName', 'updatedAt'
+          ])
+          ||
+          // Action: Subscription activation
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'subscriptionPlan', 'subscriptionStatus', 'unlockedFrames', 'earnedBadges', 'updatedAt'
+          ])
+        );
+
+      allow delete: if false;
+
+      // Subcollection: Per-Language Mastery Progress
+      match /languageProgress/{langCode} {
+        allow get: if isValidId(userId) && isValidId(langCode) && isOwner(userId);
+        allow list: if isOwner(userId) && existing().uid == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(langCode)
+          && isVerifiedUser()
+          && isOwner(userId)
+          && isValidLanguageProgress(incoming(), userId, langCode)
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isValidId(userId)
+          && isValidId(langCode)
+          && isVerifiedUser()
+          && isOwner(userId)
+          && isValidLanguageProgress(incoming(), userId, langCode)
+          && incoming().uid == existing().uid
+          && incoming().langCode == existing().langCode
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'xp', 'masteredCards', 'completedGrammar', 'updatedAt'
+          ])
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow delete: if false;
+      }
+
+      // Subcollection: Immutable Subscription Payment Receipts
+      match /purchases/{purchaseId} {
+        allow get: if isValidId(userId) && isValidId(purchaseId) && isOwner(userId);
+        allow list: if isOwner(userId) && existing().uid == request.auth.uid;
+
+        allow create: if isValidId(userId)
+          && isValidId(purchaseId)
+          && isVerifiedUser()
+          && isOwner(userId)
+          && isValidPurchase(incoming(), userId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // 2. Public Leaderboard (No PII; Owner-Only Write)
+    match /leaderboard/{userId} {
+      allow get: if isValidId(userId) && isSignedIn();
+      allow list: if isSignedIn() && existing().xp >= 0;
+
+      allow create: if isValidId(userId)
+        && isVerifiedUser()
+        && isOwner(userId)
+        && isValidLeaderboardEntry(incoming(), userId)
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && isVerifiedUser()
+        && isOwner(userId)
+        && isValidLeaderboardEntry(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'xp', 'weeklyXp', 'streak', 'activeFrameId',
+          'activeLanguage', 'badgesCount', 'league', 'isPlus', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    // 3. Social XP Duels
+    match /duels/{duelId} {
+      allow get: if isValidId(duelId) && isSignedIn()
+        && (existing().status == 'open' || existing().challengerUid == request.auth.uid || existing().opponentUid == request.auth.uid);
+      allow list: if isSignedIn()
+        && (existing().status == 'open' || existing().challengerUid == request.auth.uid || existing().opponentUid == request.auth.uid);
+
+      allow create: if isValidId(duelId)
+        && isVerifiedUser()
+        && isValidDuel(incoming())
+        && incoming().challengerUid == request.auth.uid
+        && incoming().opponentUid == ''
+        && incoming().status == 'open'
+        && incoming().challengerXp == 0
+        && incoming().opponentXp == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(duelId)
+        && isVerifiedUser()
+        && isValidDuel(incoming())
+        && existing().status != 'completed'
+        && incoming().challengerUid == existing().challengerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Join open duel as opponent
+          (
+            existing().status == 'open'
+            && existing().challengerUid != request.auth.uid
+            && incoming().opponentUid == request.auth.uid
+            && incoming().status == 'active'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['opponentUid', 'opponentName', 'status', 'updatedAt'])
+          )
+          ||
+          // Action: Challenger logs XP or finishes duel
+          (
+            existing().status == 'active'
+            && existing().challengerUid == request.auth.uid
+            && incoming().opponentUid == existing().opponentUid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['challengerXp', 'status', 'winnerUid', 'updatedAt'])
+          )
+          ||
+          // Action: Opponent logs XP or finishes duel
+          (
+            existing().status == 'active'
+            && existing().opponentUid == request.auth.uid
+            && incoming().opponentUid == existing().opponentUid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['opponentXp', 'status', 'winnerUid', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(duelId)
+        && isVerifiedUser()
+        && existing().status == 'open'
+        && existing().challengerUid == request.auth.uid;
+    }
+  }
+}

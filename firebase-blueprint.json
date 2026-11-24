@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private learner profile storing PII, daily goals, streaks, unlocked frames, badges, and subscription tier.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "xp": { "type": "integer" },
+        "weeklyXp": { "type": "integer" },
+        "monthlyXp": { "type": "integer" },
+        "gems": { "type": "integer" },
+        "streak": { "type": "integer" },
+        "streakFreezes": { "type": "integer" },
+        "dailyGoal": { "type": "integer" },
+        "dailyXpToday": { "type": "integer" },
+        "lastActiveDate": { "type": "string", "maxLength": 20 },
+        "activeLanguage": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "knownLanguage": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "referralsCount": { "type": "integer" },
+        "referredBy": { "type": "string", "maxLength": 32 },
+        "activeFrameId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "unlockedFrames": { "type": "array", "description": "Max 20 frame IDs" },
+        "earnedBadges": { "type": "array", "description": "Max 30 badge IDs" },
+        "subscriptionPlan": { "type": "string", "enum": ["free", "hints_20", "ad_free", "monthly", "annual", "lifetime"] },
+        "subscriptionStatus": { "type": "string", "enum": ["inactive", "active"] },
+        "freeHintsRemaining": { "type": "integer" },
+        "unlimitedHints": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "xp",
+        "weeklyXp",
+        "gems",
+        "streak",
+        "streakFreezes",
+        "dailyGoal",
+        "dailyXpToday",
+        "lastActiveDate",
+        "activeLanguage",
+        "activeFrameId",
+        "unlockedFrames",
+        "earnedBadges",
+        "subscriptionPlan",
+        "subscriptionStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Public learner standing on the global and weekly league leaderboard (no PII).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "xp": { "type": "integer" },
+        "weeklyXp": { "type": "integer" },
+        "monthlyXp": { "type": "integer" },
+        "streak": { "type": "integer" },
+        "activeFrameId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "activeLanguage": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "badgesCount": { "type": "integer" },
+        "league": { "type": "string", "enum": ["Bronze", "Silver", "Gold", "Sapphire", "Obsidian"] },
+        "isPlus": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "xp",
+        "weeklyXp",
+        "streak",
+        "activeFrameId",
+        "activeLanguage",
+        "badgesCount",
+        "league",
+        "isPlus",
+        "updatedAt"
+      ]
+    },
+    "LanguageProgress": {
+      "title": "LanguageProgress",
+      "description": "Per-language learner mastery state (mastered flashcard IDs, grammar drills, 200 CEFR challenges, language XP).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "langCode": { "type": "string", "minLength": 2, "maxLength": 10, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "xp": { "type": "integer" },
+        "masteredCards": { "type": "array", "description": "Max 800 card and mystery box IDs" },
+        "completedGrammar": { "type": "array", "description": "Max 800 grammar, guided path, and phase question IDs" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "langCode", "xp", "masteredCards", "completedGrammar", "updatedAt"]
+    },
+    "SubscriptionPurchase": {
+      "title": "SubscriptionPurchase",
+      "description": "Immutable payment gateway receipt for PIRYAS Plus subscription.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "transactionId": { "type": "string", "minLength": 6, "maxLength": 80 },
+        "planId": { "type": "string", "enum": ["hints_20", "ad_free", "monthly", "annual", "lifetime"] },
+        "amountCents": { "type": "integer" },
+        "currency": { "type": "string", "enum": ["INR", "USD"] },
+        "paymentMethod": { "type": "string", "enum": ["card", "upi", "wallet"] },
+        "cardLast4": { "type": "string", "maxLength": 4 },
+        "status": { "type": "string", "enum": ["succeeded"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "transactionId", "planId", "amountCents", "currency", "paymentMethod", "status", "createdAt"]
+    },
+    "XpDuel": {
+      "title": "XpDuel",
+      "description": "Social competition XP duel between two learners.",
+      "type": "object",
+      "properties": {
+        "challengerUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "challengerName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "challengerFrame": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "opponentUid": { "type": "string", "maxLength": 128 },
+        "opponentName": { "type": "string", "maxLength": 80 },
+        "languageCode": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "targetXp": { "type": "integer" },
+        "challengerXp": { "type": "integer" },
+        "opponentXp": { "type": "integer" },
+        "status": { "type": "string", "enum": ["open", "active", "completed"] },
+        "winnerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "challengerUid",
+        "challengerName",
+        "challengerFrame",
+        "opponentUid",
+        "opponentName",
+        "languageCode",
+        "targetXp",
+        "challengerXp",
+        "opponentXp",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time text and voice-transcribed message between learners on the Leaderboard.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "senderLanguage": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "recipientUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "recipientName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "languageCode": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "viaVoice": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "senderUid",
+        "senderName",
+        "senderLanguage",
+        "recipientUid",
+        "recipientName",
+        "languageCode",
+        "text",
+        "viaVoice",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private learner profile document owned strictly by userId."
+    },
+    "/users/{userId}/languageProgress/{langCode}": {
+      "schema": { "$ref": "#/entities/LanguageProgress" },
+      "description": "Per-language flashcard and grammar mastery progress owned by userId."
+    },
+    "/users/{userId}/purchases/{purchaseId}": {
+      "schema": { "$ref": "#/entities/SubscriptionPurchase" },
+      "description": "Immutable subscription payment receipts owned by userId."
+    },
+    "/leaderboard/{userId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Public leaderboard standing without PII."
+    },
+    "/duels/{duelId}": {
+      "schema": { "$ref": "#/entities/XpDuel" },
+      "description": "Social XP duel challenges between learners."
+    },
+    "/chatMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time learner chat and voice messages on the Leaderboard."
+    }
+  }
+}
